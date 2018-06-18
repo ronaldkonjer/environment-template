@@ -1,0 +1,84 @@
+mycommerce:
+  persistence:
+    enabled: true
+    storageClass: "nfs"
+    storage: 10Gi
+
+  resources:
+    limits:
+      cpu: 2
+      memory: 8Gi
+    requests:
+      cpu: 1
+      memory: 4Gi
+
+  commonenv:
+    - name: y_spring_session_enabled
+      value: "true"
+    - name: y_db_url
+      value: "jdbc:mysql://google/change-me?useSSL=false&socketFactory=com.google.cloud.sql.mysql.SocketFactory&cloudSqlInstance=PROJECT:REGION:INSTANCE"
+    - name: y_db_driver
+      value: com.mysql.jdbc.Driver
+    - name: y_db_username
+      valueFrom:
+        secretKeyRef:
+          name: cloudsql-db-credentials
+          key: username
+    - name: y_db_password
+      valueFrom:
+        secretKeyRef:
+          name: cloudsql-db-credentials
+          key: password
+
+  backend:
+    replicaCount: 1
+    backendExclusive: false
+    extraProperties: |-
+      cluster.node.groups=backend
+      addonfilter.active=false
+    ingress:
+      enabled: true
+      annotations:
+        kubernetes.io/ingress.class: nginx
+        nginx.ingress.kubernetes.io/affinity: "cookie"
+        nginx.ingress.kubernetes.io/session-cookie-name: "route"
+        nginx.ingress.kubernetes.io/session-cookie-hash: "sha1"
+        # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        certmanager.k8s.io/cluster-issuer: letsencrypt-staging
+        certmanager.k8s.io/acme-http01-edit-in-place: "true"
+      path: /
+      hosts:
+        - backend-change-me.XXX.XXX.XXX.XXX.nip.io
+      tls:
+      - secretName: backend-change-me-cert-secret
+        hosts:
+          - backend-change-me.XXX.XXX.XXX.XXX.nip.io
+
+  frontend:
+    replicaCount: 0
+    extraProperties: |-
+      cronjob.timertask.loadonstartup=false
+      task.engine.loadonstartup=false
+      addonfilter.active=false
+    ingress:
+      enabled: true
+      annotations:
+        kubernetes.io/ingress.class: nginx
+        nginx.ingress.kubernetes.io/affinity: "cookie"
+        nginx.ingress.kubernetes.io/session-cookie-name: "route"
+        nginx.ingress.kubernetes.io/session-cookie-hash: "sha1"
+        # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        certmanager.k8s.io/cluster-issuer: letsencrypt-staging
+        certmanager.k8s.io/acme-http01-edit-in-place: "true"
+        nginx.ingress.kubernetes.io/configuration-snippet: |-
+          location ~ /(backoffice|hac).*$ {
+            deny all;
+          }
+      path: /
+      hosts:
+        - change-me.XXX.XXX.XXX.XXX.nip.io
+      tls:
+      - secretName: change-me-cert-secret
+        hosts:
+          - change-me.XXX.XXX.XXX.XXX.nip.io
+
